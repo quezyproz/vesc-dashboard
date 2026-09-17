@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>VESC Telemetrie Suite</title>
+    <!-- WebApp Settings für Vollbild auf dem Home-Bildschirm -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #080a0f;
+            color: #ffffff;
+            padding: 10px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Container & Grid Layout */
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Haupt-Tacho Bereich (Immer oben im Fokus) */
+        .primary-screen {
+            background: linear-gradient(145deg, #111622, #182030);
+            border: 2px solid #00e676;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,230,118,0.15);
+        }
+
+        .speed-val {
+            font-size: 5.5rem;
+            font-weight: 900;
+            color: #00e676;
+            line-height: 0.9;
+            font-variant-numeric: tabular-nums;
+        }
+        .speed-unit {
+            font-size: 1rem;
+            color: #8a99ad;
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        /* Akku Fortschrittsbalken */
+        .battery-bar-container {
+            width: 100%;
+            height: 12px;
+            background: #1f2937;
+            border-radius: 6px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+        .battery-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #00e676;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        /* Sekundäre Daten-Raster */
+        .secondary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .card {
+            background: #111622;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .val {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #ffffff;
+            font-variant-numeric: tabular-nums;
+        }
+        .lbl {
+            font-size: 0.65rem;
+            color: #6b7280;
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Responsive Anordnungen (Querformat / Landscape) */
+        @media (orientation: landscape) {
+            .app-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                align-items: start;
+            }
+            .primary-screen {
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            .speed-val { font-size: 4.5rem; }
+        }
+
+        @media (min-width: 600px) and (orientation: portrait) {
+            .secondary-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            width: 100%;
+        }
+        button {
+            flex: 1;
+            background: #00e676;
+            color: #000;
+            border: none;
+            padding: 14px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        button.secondary {
+            background: #1f2937;
+            color: #fff;
+        }
+        #status {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <!-- Pinned Top: Hauptanzeige (Geschwindigkeit & Akku) -->
+    <div class="primary-screen">
+        <div class="speed-val" id="speed">0.0</div>
+        <div class="speed-unit">KM/H</div>
+        <div class="battery-bar-container">
+            <div class="battery-bar-fill" id="batBar"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.75rem; color: #8a99ad;">
+            <span id="batPct">0 %</span>
+            <span id="voltage">0.0 V</span>
+        </div>
+    </div>
+
+    <!-- Sekundäre Telemetrie (Scrollt unten weiter) -->
+    <div class="secondary-grid">
+        <div class="card">
+            <div class="val" id="power">0 W</div>
+            <div class="lbl">Leistung</div>
+        </div>
+        <div class="card">
+            <div class="val" id="current">0.0 A</div>
+            <div class="lbl">Motorstrom</div>
+        </div>
+        <div class="card">
+            <div class="val" id="tempFet">0 °C</div>
+            <div class="lbl">FET Temp</div>
+        </div>
+        <div class="card">
+            <div class="val" id="erpm">0</div>
+            <div class="lbl">eRPM</div>
+        </div>
+        <div class="card">
+            <div class="val" id="peakSpeed">0.0</div>
+            <div class="lbl">Max KM/H</div>
+        </div>
+        <div class="card">
+            <div class="val" id="peakPower">0 W</div>
+            <div class="lbl">Max Watt</div>
+        </div>
+        <div class="card">
+            <div class="val" id="avgSpeed">0.0</div>
+            <div class="lbl">Ø KM/H</div>
+        </div>
+        <div class="card">
+            <div class="val" id="tripTime">00:00</div>
+            <div class="lbl">Fahrzeit</div>
+        </div>
+    </div>
+
+    <!-- Steuerung -->
+    <div class="btn-group">
+        <button id="connectBtn">VESC Verbinden</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+    </div>
+    <div id="status">Status: Bereit</div>
+
+</div>
+
+<script>
+    let bluetoothDevice, gattServer, txChar, rxChar;
+    let peakSpd = 0, peakPwr = 0, speedSum = 0, speedCount = 0;
+    let startTime = null;
+
+    // Einstellungen zur Berechnung
+    const WHEEL_DIAMETER_INCHES = 10;
+    const MOTOR_POLE_PAIRS = 15;
+
+    document.getElementById('connectBtn').addEventListener('click', async () => {
+        try {
+            document.getElementById('status').innerText = "Suche Bluetooth...";
+            bluetoothDevice = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+            });
+
+            document.getElementById('status').innerText = "Verbinde...";
+            gattServer = await bluetoothDevice.gatt.connect();
+            const service = await gattServer.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+            txChar = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+            rxChar = await service.getCharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
+
+            await rxChar.startNotifications();
+            rxChar.addEventListener('characteristicvaluechanged', parseVescData);
+
+            document.getElementById('status').innerText = "Verbunden!";
+            document.getElementById('connectBtn').style.display = 'none';
+            startTime = Date.now();
+
+            setInterval(requestVescData, 150);
+            setInterval(updateTimer, 1000);
+        } catch (e) {
+            document.getElementById('status').innerText = "Fehler: " + e.message;
+        }
+    });
+
+    async function requestVescData() {
+        if (!txChar) return;
+        // COMM_GET_VALUES Befehl
+        const payload = new Uint8Array([0x02, 0x01, 0x04, 0x40, 0x84, 0x03]);
+        try { await txChar.writeValue(payload); } catch(e) {}
+    }
+
+    function parseVescData(event) {
+        const dv = new DataView(event.target.value.buffer);
+        if (dv.byteLength > 40) {
+            const tempFet = dv.getInt16(3, false) / 10.0;
+            const motorCurr = dv.getInt32(9, false) / 100.0;
+            const inputCurr = dv.getInt32(13, false) / 100.0;
+            const erpm = dv.getInt32(23, false);
+            const volt = dv.getInt16(29, false) / 10.0;
+
+            // km/h Berechnung
+            const rpm = erpm / MOTOR_POLE_PAIRS;
+            const kmh = Math.max(0, (rpm * Math.PI * (WHEEL_DIAMETER_INCHES * 0.0254) * 60) / 1000);
+            const power = Math.max(0, volt * inputCurr);
+
+            // Peaks & Ø-Werte
+            if (kmh > peakSpd) peakSpd = kmh;
+            if (power > peakPwr) peakPwr = power;
+            if (kmh > 1) { speedSum += kmh; speedCount++; }
+
+            // Akku % Schätzung (Beispiel 12S)
+            const minV = 38.4, maxV = 50.4;
+            const pct = Math.min(100, Math.max(0, ((volt - minV) / (maxV - minV)) * 100));
+
+            // UI Update
+            document.getElementById('speed').innerText = kmh.toFixed(1);
+            document.getElementById('voltage').innerText = volt.toFixed(1) + " V";
+            document.getElementById('current').innerText = motorCurr.toFixed(1) + " A";
+            document.getElementById('power').innerText = Math.round(power) + " W";
+            document.getElementById('tempFet').innerText = Math.round(tempFet) + " °C";
+            document.getElementById('erpm').innerText = erpm;
+            document.getElementById('peakSpeed').innerText = peakSpd.toFixed(1);
+            document.getElementById('peakPower').innerText = Math.round(peakPwr) + " W";
+            document.getElementById('batPct').innerText = Math.round(pct) + " %";
+
+            if (speedCount > 0) {
+                document.getElementById('avgSpeed').innerText = (speedSum / speedCount).toFixed(1);
+            }
+
+            // Akkubalken Farbe & Breite
+            const bar = document.getElementById('batBar');
+            bar.style.width = pct + "%";
+            bar.style.backgroundColor = pct > 50 ? "#00e676" : (pct > 20 ? "#ffb300" : "#ff1744");
+        }
+    }
+
+    function updateTimer() {
+        if (!startTime) return;
+        const diff = Math.floor((Date.now() - startTime) / 1000);
+        const m = String(Math.floor(diff / 60)).padStart(2, '0');
+        const s = String(diff % 60).padStart(2, '0');
+        document.getElementById('tripTime').innerText = `${m}:${s}`;
+    }
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        peakSpd = 0; peakPwr = 0; speedSum = 0; speedCount = 0;
+        startTime = Date.now();
+        document.getElementById('peakSpeed').innerText = "0.0";
+        document.getElementById('peakPower').innerText = "0 W";
+        document.getElementById('avgSpeed').innerText = "0.0";
+    });
+</script>
+</body>
+</html>
